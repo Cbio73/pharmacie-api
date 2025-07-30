@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: pharmacie-api
+    env: python
+    buildCommand: ""
+    startCommand: ./start.sh
+    plan: free
