@@ -10,7 +10,7 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "pharmacie.db")
 @app.get("/pharmacies")
 def get_pharmacies(departement: str, ville: str = None):
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH, check_same_thread=False)
         print(f"📦 Connexion locale à {DB_PATH}")
 
         base_query = """
