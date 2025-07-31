@@ -5,21 +5,14 @@ import os
 
 app = FastAPI()
 
-@app.on_event("startup")
-def startup_event():
-    global conn
-    try:
-        db_path = os.path.join(os.path.dirname(__file__), "pharmacie.db")
-        print(f"📦 Connexion à la base : {db_path}")
-        conn = sqlite3.connect(db_path)
-        print("✅ Connexion OK")
-    except Exception as e:
-        print(f"❌ Erreur de connexion à la base : {e}")
+DB_PATH = os.path.join(os.path.dirname(__file__), "pharmacie.db")
 
 @app.get("/pharmacies")
 def get_pharmacies(departement: str, ville: str = None):
     try:
-        print(f"🔍 Requête reçue : departement={departement}, ville={ville}")
+        conn = sqlite3.connect(DB_PATH)
+        print(f"📦 Connexion locale à {DB_PATH}")
+
         base_query = """
             SELECT 
                 "Numéro FINESS site" AS finess,
@@ -43,7 +36,8 @@ def get_pharmacies(departement: str, ville: str = None):
         """
 
         df = pd.read_sql_query(base_query, conn, params=params)
-        print(f"✅ {len(df)} lignes trouvées")
+        conn.close()
+        print(f"✅ {len(df)} lignes retournées")
         return df.to_dict(orient="records")
 
     except Exception as e:
