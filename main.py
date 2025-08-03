@@ -1,12 +1,11 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 import sqlite3
 import pandas as pd
 
 app = FastAPI()
 
-from fastapi.middleware.cors import CORSMiddleware
-
+# Middleware CORS pour autoriser le frontend React local
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
@@ -15,41 +14,33 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "pharmacie.db")
+# Connexion à la base de données SQLite
+conn = sqlite3.connect("pharmacie.db", check_same_thread=False)
+
+@app.get("/")
+def read_root():
+    return {"message": "API pharmacie opérationnelle"}
 
 @app.get("/pharmacies")
-def get_pharmacies(departement: str, ville: str = None):
-    try:
-        conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-        print(f"📦 Connexion locale à {DB_PATH}")
+def get_pharmacies(
+    departement: str = Query(..., description="Code du département"),
+    ville: str = Query(None, description="Nom de la ville (facultatif)"),
+    tri: str = Query("pharmaciens", description="Critère de tri : 'pharmaciens' (par défaut)")
+):
+    base_query = """
+        SELECT finess, nom_pharmacie, code_postal, commune, COUNT(*) AS nombre_professionnels
+        FROM professionnels
+        WHERE code_postal LIKE ? AND profession = 'Pharmacien'
+    """
 
-        base_query = """
-            SELECT 
-                "Numéro FINESS site" AS finess,
-                "Raison sociale site" AS nom_pharmacie,
-                "Code postal (coord. structure)" AS code_postal,
-                "Libellé commune (coord. structure)" AS commune,
-                COUNT(*) AS nombre_professionnels
-            FROM professionnels
-            WHERE substr("Code postal (coord. structure)", 1, 2) = ?
-        """
+    params = [f"{departement}%"]
 
-        params = [departement]
+    if ville:
+        base_query += " AND LOWER(commune) = LOWER(?)"
+        params.append(ville)
 
-        if ville:
-            base_query += ' AND "Libellé commune (coord. structure)" = ?'
-            params.append(ville)
+    base_query += " GROUP BY finess ORDER BY nombre_professionnels DESC"
 
-        base_query += """
-            GROUP BY "Numéro FINESS site", "Raison sociale site", "Code postal (coord. structure)", "Libellé commune (coord. structure)"
-            ORDER BY nombre_professionnels DESC
-        """
+    df = pd.read_sql_query(base_query, conn, params=params)
 
-        df = pd.read_sql_query(base_query, conn, params=params)
-        conn.close()
-        print(f"✅ {len(df)} lignes retournées")
-        return df.to_dict(orient="records")
-
-    except Exception as e:
-        print(f"❌ Erreur dans /pharmacies : {e}")
-        return {"error": str(e)}
+    return df.to_dict(orient="records")
