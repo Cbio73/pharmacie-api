@@ -5,16 +5,16 @@ import pandas as pd
 
 app = FastAPI()
 
-# Middleware CORS pour autoriser le frontend React local
+# Middleware CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Connexion à la base de données SQLite
+# Connexion SQLite
 conn = sqlite3.connect("pharmacie.db", check_same_thread=False)
 
 @app.get("/")
@@ -25,10 +25,15 @@ def read_root():
 def get_pharmacies(
     departement: str = Query(..., description="Code du département"),
     ville: str = Query(None, description="Nom de la ville (facultatif)"),
-    tri: str = Query("pharmaciens", description="Critère de tri : 'pharmaciens' (par défaut)")
+    tri: str = Query("pharmaciens", description="Critère de tri (par défaut: pharmaciens)")
 ):
-    base_query = """
-        SELECT finess, nom_pharmacie, code_postal, commune, COUNT(*) AS nombre_professionnels
+    query = """
+        SELECT 
+            numero_finess_site AS finess,
+            nom_pharmacie,
+            code_postal,
+            commune,
+            COUNT(*) AS nombre_professionnels
         FROM professionnels
         WHERE code_postal LIKE ? AND profession = 'Pharmacien'
     """
@@ -36,11 +41,13 @@ def get_pharmacies(
     params = [f"{departement}%"]
 
     if ville:
-        base_query += " AND LOWER(commune) = LOWER(?)"
+        query += " AND LOWER(commune) = LOWER(?)"
         params.append(ville)
 
-    base_query += " GROUP BY finess ORDER BY nombre_professionnels DESC"
+    query += """
+        GROUP BY numero_finess_site
+        ORDER BY nombre_professionnels DESC
+    """
 
-    df = pd.read_sql_query(base_query, conn, params=params)
-
+    df = pd.read_sql_query(query, conn, params=params)
     return df.to_dict(orient="records")
