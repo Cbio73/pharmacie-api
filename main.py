@@ -5,7 +5,7 @@ import pandas as pd
 
 app = FastAPI()
 
-# Middleware CORS
+# Middleware CORS pour autoriser le frontend React local
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -14,16 +14,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Connexion SQLite
+# Connexion à la base de données SQLite
 conn = sqlite3.connect("pharmacie.db", check_same_thread=False)
 
+@app.get("/")
+def read_root():
+    return {"message": "API pharmacie opérationnelle"}
+
 @app.get("/pharmacies")
-def get_pharmacies(
-    departement: str = Query(..., description="Code du département"),
-    ville: str = Query(None, description="Nom de la ville (facultatif)"),
-    tri: str = Query("pharmaciens", description="Critère de tri (par défaut: pharmaciens)")
-):
-  @app.get("/pharmacies")
 def get_pharmacies(
     departement: str = Query(..., description="Code du département"),
     ville: str = Query(None, description="Nom de la ville (facultatif)"),
@@ -53,4 +51,3 @@ def get_pharmacies(
 
     df = pd.read_sql_query(query, conn, params=params)
     return df.to_dict(orient="records")
-
