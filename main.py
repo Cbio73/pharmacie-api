@@ -17,11 +17,13 @@ app.add_middleware(
 # Connexion SQLite
 conn = sqlite3.connect("pharmacie.db", check_same_thread=False)
 
-@app.get("/")
-def read_root():
-    return {"message": "API pharmacie opérationnelle"}
-
 @app.get("/pharmacies")
+def get_pharmacies(
+    departement: str = Query(..., description="Code du département"),
+    ville: str = Query(None, description="Nom de la ville (facultatif)"),
+    tri: str = Query("pharmaciens", description="Critère de tri (par défaut: pharmaciens)")
+):
+  @app.get("/pharmacies")
 def get_pharmacies(
     departement: str = Query(..., description="Code du département"),
     ville: str = Query(None, description="Nom de la ville (facultatif)"),
@@ -29,25 +31,26 @@ def get_pharmacies(
 ):
     query = """
         SELECT 
-            numero_finess_site AS finess,
-            nom_pharmacie,
-            code_postal,
-            commune,
+            "Numéro FINESS site" AS finess,
+            "Raison sociale site" AS nom_pharmacie,
+            "Code postal (coord. structure)" AS code_postal,
+            "Libellé commune (coord. structure)" AS commune,
             COUNT(*) AS nombre_professionnels
         FROM professionnels
-        WHERE code_postal LIKE ? AND profession = 'Pharmacien'
+        WHERE "Code postal (coord. structure)" LIKE ? AND "Libellé profession" = 'Pharmacien'
     """
 
     params = [f"{departement}%"]
 
     if ville:
-        query += " AND LOWER(commune) = LOWER(?)"
+        query += " AND LOWER(\"Libellé commune (coord. structure)\") = LOWER(?)"
         params.append(ville)
 
     query += """
-        GROUP BY numero_finess_site
+        GROUP BY "Numéro FINESS site"
         ORDER BY nombre_professionnels DESC
     """
 
     df = pd.read_sql_query(query, conn, params=params)
     return df.to_dict(orient="records")
+
